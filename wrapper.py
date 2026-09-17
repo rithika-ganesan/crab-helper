@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import shutil
+import re
 
 def get_cmssw_base():
     """
@@ -119,8 +120,66 @@ def apply_truncation_settings(cmssw_base, path_to_settings, module, shell_script
  
     return rebuild_cmssw(cmssw_base, num_jobs=num_jobs, log_path=log_path)
 
+def fill_template_to_output(template_name, replacements, output_dir, output_filename, use_regex=False):
+    """
+    Read a template file (located in the same directory as this script),
+    apply replacements, and write the result to output_dir under output_filename,
+    overwriting any existing file of that name there.
 
+    Args:
+        template_name (str): filename of the template (e.g. 'crabConfig_template.py'),
+            expected to live alongside this script
+        replacements (dict): mapping of {pattern: replacement}
+        output_dir (str): directory to write the filled-in file to (created if it doesn't exist)
+        output_filename (str): filename to give the filled-in file (e.g. 'crabConfig_run123.py')
+        use_regex (bool): whether replacement keys are regex patterns
 
+    Returns:
+        str: full path to the written output file
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(script_dir, template_name)
+
+    if not os.path.isfile(template_path):
+        raise FileNotFoundError(f"Template not found: {template_path}")
+
+    with open(template_path, "r") as f:
+        content = f.read()
+
+    for pattern, replacement in replacements.items():
+        if use_regex:
+            content = re.sub(pattern, replacement, content)
+        else:
+            content = content.replace(pattern, replacement)
+
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, output_filename)
+
+    with open(output_path, "w") as f:
+        f.write(content)
+
+    return output_path
+
+def build_replacements(l1tf_algorithm, n_events, data_name, output_file_name):
+    """
+    Build the replacements dictionary for the L1TrackNtupleMaker_cfg file,
+    mapping each placeholder to its corresponding value.
+
+    Args:
+        l1tf_algorithm (str): value to substitute for __L1TF_ALGORITHM__
+        n_events (int or str): value to substitute for __N_EVENTS__
+        data_name (str): value to substitute for __DATA_NAME__
+        output_file_name (str): value to substitute for __OUTPUT_FILE_NAME__
+
+    Returns:
+        dict: {placeholder: replacement} ready to pass to fill_template_to_output()
+    """
+    return {
+        "__L1TF_ALGORITHM__": str(l1tf_algorithm),
+        "__N_EVENTS__": str(n_events),
+        "__DATA_NAME__": str(data_name),
+        "__OUTPUT_FILE_NAME__": str(output_file_name),
+    }
 
 
 if __name__ == "__main__":
@@ -129,7 +188,20 @@ if __name__ == "__main__":
     print(f"Release name:    {release}")
 
     path_to_settings = "src/L1Trigger/TrackFindingTracklet/interface/Settings.h"
+    path_to_test = "src/L1Trigger/TrackFindingTracklet/test/"
     module = "ALL"
     shell_script = "./changeTruncationSettings.sh"
 
-    apply_truncation_settings(cmssw_base, path_to_settings, module, shell_script)
+    # apply_truncation_settings(cmssw_base, path_to_settings, module, shell_script)
+
+    print("\n=== Test: fill_template_to_output() ===")
+    test_replacements = build_replacements(
+        l1tf_algorithm="HYBRID_SIM",
+        n_events=50000,
+        data_name="DispSUSY/whatever",
+        output_file_name="outputCheck.root",
+    )
+    test_output_dir = cmssw_base+"/"+path_to_test
+    print(test_output_dir)
+    output_path = fill_template_to_output("L1TrackNtupleMaker_cfg_template.py", test_replacements, test_output_dir, output_filename="L1TrackNtupleMaker_cfg.py")
+    print(f"  Result: written to {output_path}")
