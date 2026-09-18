@@ -9,7 +9,7 @@ import subprocess
 
 build = True
 test = False
-modules = ['ALL', 'NONE']
+modules = ['IR', 'VMR', 'TB'] #, 'MP', 'PC', 'TP', 'TPD', 'DR', 'ALL', 'NONE']
 samples = ['DispSUSY', 'Higgs900', 'Higgs1500']
 algos = ['HYBRID'] 
 
@@ -18,7 +18,7 @@ n_events_by_sample = {
 }
 
 num_threads_by_sample = {
-    'DispSUSY': 1, 'Higgs900': 1, 'Higgs1500': 1
+    'DispSUSY': 4, 'Higgs900': 4, 'Higgs1500': 4
 }
 
 script_path = "/afs/cern.ch/user/r/rganesan/private/crab-helper/driver.py" 
@@ -45,8 +45,8 @@ for module in modules:
                 "--num_threads", str(num_threads),
             ]
 
-            if not new_build:
-                command.append("--nobuild")
+            # if not new_build:
+            #     command.append("--nobuild")
 
             if test == True:
                 command.append("--test")

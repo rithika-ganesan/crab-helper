@@ -297,6 +297,8 @@ process.L1TrackNtuple = L1TrackNtupleMaker.clone(
 
 process.ana = cms.Path(process.L1TrackNtuple)
 
+process.options.numberOfThreads=__NUM_THREADS__
+
 
 ############################################################
 # final schedule of what is to be run
