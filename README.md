@@ -1,3 +1,13 @@
+### File descriptions 
+
+`utils.py`: contains functions 
+`dictionaries.py`: contains dictionaries with sample and module information 
+`driver.py`: chains functions together to run a single job 
+`batch_jobs.py`: submit multiple jobs at once
+
+`changeTruncationSettings.sh`: edits settings file 
+`L1TrackNtupleMaker_cfg_template.py`, `crab_cfg_template.py`: templates 
+
 To run single jobs from the command line, add the following line to your bash_profile:
 ```
 alias crabdriver="python3 /afs/cern.ch/user/**j**/**janedoe**/private/crab-helper/driver.py"
