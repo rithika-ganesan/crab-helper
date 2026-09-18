@@ -3,6 +3,7 @@ import sys
 import subprocess
 import shutil
 import re
+from dictionaries import samples
 
 def get_cmssw_base():
     """
@@ -70,7 +71,7 @@ def rebuild_cmssw(cmssw_base, num_jobs=8, log_path=None):
         return False
  
     if log_path is None:
-        log_path = os.path.join(cmssw_base, "scram_build.log")
+        log_path = os.path.join(cmssw_base+'/src', "scram_build.log")
  
     with open(log_path, "w") as log_file:
         log_file.write(f"=== scram b clean ===\n")
@@ -160,7 +161,7 @@ def fill_template_to_output(template_name, replacements, output_dir, output_file
 
     return output_path
 
-def build_replacements_l1tf(l1tf_algorithm, n_events, data_name, output_file_name):
+def build_replacements_l1tf(l1tf_algorithm, n_events, data_name, truncation_setting, num_threads, output_file_name_append=None):
     """
     Build the replacements dictionary for the L1TrackNtupleMaker_cfg file,
     mapping each placeholder to its corresponding value.
@@ -168,16 +169,33 @@ def build_replacements_l1tf(l1tf_algorithm, n_events, data_name, output_file_nam
     Args:
         l1tf_algorithm (str): value to substitute for __L1TF_ALGORITHM__
         n_events (int or str): value to substitute for __N_EVENTS__
-        data_name (str): value to substitute for __DATA_NAME__
-        output_file_name (str): value to substitute for __OUTPUT_FILE_NAME__
+        data_name (str): key into `samples`; samples[data_name][0] substitutes
+            for __DATA_NAME__, and samples[data_name][1] is used to build the
+            output filename
+        truncation_setting (str): for output filename
+        num_threads (int or str): value to substitute for __NUM_THREADS__
+        output_file_name_append (str, optional): extra string appended to the
+            output filename (e.g. a run number or variant label)
 
     Returns:
         dict: {placeholder: replacement} ready to pass to fill_template_to_output()
     """
+    if data_name not in samples:
+        valid_options = ", ".join(samples.keys())
+        raise ValueError(f"Invalid data_name '{data_name}'. Valid options are: {valid_options}")
+
+    if output_file_name_append:
+        output_file_name_append = '-' + str(output_file_name_append)
+    else:
+        output_file_name_append = ''
+
+    output_file_name = f'algo_{l1tf_algorithm}-nevents_{n_events}-{samples[data_name][1]}-{truncation_setting}{output_file_name_append}.root'
+
     return {
         "__L1TF_ALGORITHM__": str(l1tf_algorithm),
         "__N_EVENTS__": str(n_events),
-        "__DATA_NAME__": str(data_name),
+        "__DATA_NAME__": str(samples[data_name][0]),
+        "__NUM_THREADS__": str(num_threads),
         "__OUTPUT_FILE_NAME__": str(output_file_name),
     }
 
@@ -188,7 +206,7 @@ def build_crab_config_replacements(request_name, num_threads, input_dataset, num
 
     Args:
         request_name (str): value to substitute for __REQUEST_NAME__
-        num_threads (int or str): value to substitute for _NUM_THREADS__
+        num_threads (int or str): value to substitute for __NUM_THREADS__
         max_memory (int or str): value to substitute for __MAX_MEMORY__
         input_dataset (str): value to substitute for __INPUT_DATASET__
         num_events (int or str): value to substitute for __NUM_EVENTS__
@@ -204,7 +222,7 @@ def build_crab_config_replacements(request_name, num_threads, input_dataset, num
 
     return {
         "__REQUEST_NAME__": str(request_name),
-        "_NUM_THREADS__": str(num_threads),
+        "__NUM_THREADS__": str(num_threads),
         "__MAX_MEMORY__": str(max_memory),
         "__INPUT_DATASET__": str(input_dataset),
         "__NUM_EVENTS__": str(num_events),
@@ -222,23 +240,23 @@ if __name__ == "__main__":
 
     # apply_truncation_settings(cmssw_base, path_to_settings, module, shell_script)
 
-    # print("\n=== Test: fill_template_to_output() ===")
-    # test_replacements = build_replacements_l1tf(
-    #     l1tf_algorithm="HYBRID_SIM",
-    #     n_events=50000,
-    #     data_name="DispSUSY/whatever",
-    #     output_file_name="outputCheck.root",
-    # )
-    test_output_dir = cmssw_base+"/"+path_to_test
-    # print(test_output_dir)
-    # l1tfcfg_output_path = fill_template_to_output("L1TrackNtupleMaker_cfg_template.py", test_replacements, test_output_dir, output_filename="L1TrackNtupleMaker_cfg.py")
-    # print(f"  Result: written to {l1tfcfg_output_path}")
-
-    test_crab_replacements_auto = build_crab_config_replacements(
-        request_name="MyRequest_2026",
-        num_threads=2,
-        input_dataset="/ZeroBias/Run2024-v1/RAW-MINIAOD",
-        num_events=1000,
+    print("\n=== Test: fill_template_to_output() ===")
+    test_replacements = build_replacements_l1tf(
+        l1tf_algorithm="HYBRID_SIM",
+        n_events=50000,
+        data_name="Higgs900",
+        output_file_name_append="newCheck",
     )
-    crab_output_path = fill_template_to_output("crab_cfg_template.py", test_crab_replacements_auto, test_output_dir, output_filename="crab_cfg.py")
+    test_output_dir = cmssw_base+"/"+path_to_test
+    print(test_output_dir)
+    l1tfcfg_output_path = fill_template_to_output("L1TrackNtupleMaker_cfg_template.py", test_replacements, test_output_dir, output_filename="L1TrackNtupleMaker_cfg.py")
+    print(f"  Result: written to {l1tfcfg_output_path}")
+
+    # test_crab_replacements_auto = build_crab_config_replacements(
+    #     request_name="MyRequest_2026",
+    #     num_threads=2,
+    #     input_dataset="/ZeroBias/Run2024-v1/RAW-MINIAOD",
+    #     num_events=1000,
+    # )
+    # crab_output_path = fill_template_to_output("crab_cfg_template.py", test_crab_replacements_auto, test_output_dir, output_filename="crab_cfg.py")
 
